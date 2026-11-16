@@ -1,0 +1,210 @@
+# # VEIL-Bench quotas — full track (~1000 clips) and lite track (~125 clips)
+# # Minimums are MARGINAL (per single covariate level), not joint cross-product cells.
+# # coverage.py will reveal which joint cells are empty.
+# # Saved BEFORE running coverage.py — do not revise after seeing coverage numbers.
+# # seed: 42 — used in sample.py and all downstream scripts.
+
+# meta:
+#   seed: 42
+#   full_target: 1000
+#   lite_target: 125
+#   lite_fraction: 0.125   # lite = 1/8 of full; sample.py applies floor()
+
+# subsets:
+
+#   veil_id:
+#     source: voxceleb2_test
+#     full_total: 600
+#     lite_total: 75
+#     per_identity_min: 3          # T4 requires >=2 independent sessions/ID; 3 clips/ID
+#     sessions_per_identity_min: 2 # clips must span >=2 distinct video_id sessions
+#     covariates:
+#       yaw_deg:
+#         le15:   200
+#         r15_40: 240
+#         gt40:    80   # oblique; expect sparse — floor kept modest
+#       face_size_px:
+#         ge160:  240
+#         r80_160: 240
+#         lt80:    50   # small-face stress cell; expect sparse
+#       clip_length_s:
+#         le5:    270
+#         r5_15:  270
+#         gt15:    40   # VoxCeleb2 mean ~8 s; >15 s clips will be rare
+#       expression:
+#         neutral_low: 360
+#         high:        120
+#       snr:
+#         clean: 400
+#         noisy: 130
+
+#   veil_av:
+#     source: [mead, cremad]
+#     full_total: 300
+#     lite_total: 38
+#     mead_min:   180
+#     cremad_min:  90
+#     per_identity_min: 1
+#     covariates:
+#       yaw_deg:          # MEAD angles map naturally: front->le15, ±30->r15_40, ±60->gt40
+#         le15:    120
+#         r15_40:  105
+#         gt40:     60
+#       expression:
+#         neutral_low:  105
+#         high:         180   # MEAD/CREMA-D are expression-rich — exploit this
+#       snr:
+#         clean: 225
+#         noisy:  45          # MEAD is studio-clean; noise mainly from CREMA-D
+#       clip_length_s:
+#         le5:    255         # CREMA-D mean 2.6 s, MEAD mean 4.3 s
+#         r5_15:   38
+#         gt15:     8         # nearly empty in both corpora — symbolic floor only
+
+#   veil_hq:
+#     source: hdtf
+#     full_total: 100
+#     lite_total:  12
+#     per_identity_min: 1          # HDTF: 1 clip per identity by design
+#     covariates:
+#       clip_length_s:
+#         le5:     0   # HDTF all >15 s by construction — degenerate cells
+#         r5_15:   0
+#         gt15:   100
+#       yaw_deg:
+#         le15:   60
+#         r15_40: 30
+#         gt40:   10
+
+# # Demographic cell minimums — marginal only (full cross-product = 2×3×5 = 30 cells)
+# # Applies to subsets where FairFace annotations are used (veil_id, veil_av/mead, veil_ms).
+# # CREMA-D uses ground-truth CSV demographics; HDTF uses FairFace.
+# # Coverage experiment will expose empty joint cells.
+# demographics:
+#   gender:
+#     M:  133
+#     F:  106
+#   age_band:            # bands match FairFace output bins
+#     young:  106        # <30
+#     mid:    106        # 30–50
+#     older:   53        # >50
+#   ethnicity:           # collapsed from FairFace 7-class to 5-group
+#     white:  106
+#     black:   80
+#     asian:   80
+#     latino:  53
+#     other:   40
+# VEIL-Bench quotas v2.0 — full track (~1100 clips) and lite track (~138 clips)
+# Minimums are MARGINAL (per single covariate level), not joint cross-product cells.
+# coverage.py will reveal which joint cells are empty.
+# Saved BEFORE running coverage.py — do not revise after seeing coverage numbers.
+# seed: 42 — used in sample.py and all downstream scripts.
+#
+# Changes from v1.0:
+#   - clip_length_s axis DROPPED from all subsets (81-frame hard cap makes it
+#     meaningless; all clips are exactly 81 frames = ~3.24s at 25fps)
+#   - yaw_deg bins renamed: le15->frontal, r15_40->profile, gt40->extreme
+#     and boundaries revised to 0-30 / 30-60 / >60 to match AnonNET narrative
+#   - veil_hq source changed from hdtf to celebv_hq; full_total raised to 200
+#   - T3 (temporal aggregation) attacker demoted; no quota impact but noted here
+#   - window_frames: 81 documented per subset as the extraction parameter
+
+meta:
+  seed: 42
+  full_target:  1100   # 600 veil_id + 300 veil_av + 200 veil_hq
+  lite_target:  138    # ~1/8; floor() applied in sample.py
+  lite_fraction: 0.125
+  window_frames: 81    # all clips are exactly this many frames
+
+subsets:
+
+  veil_id:
+    source: voxceleb2_test
+    full_total: 600
+    lite_total:  75
+    per_identity_min: 3          # T4a requires >=2 independent sessions/ID
+    sessions_per_identity_min: 2
+    window_policy: max_yaw       # pick 81-frame window with highest mean |yaw|
+                                 # see window_extract.py --policy max_yaw
+    covariates:
+      yaw_deg:
+        frontal:  200   # |yaw| 0-30°  — AnonNET competitive zone
+        profile:  250   # |yaw| 30-60° — warping starts degrading
+        extreme:  100   # |yaw| >60° or occluded — Vox-Extreme subset
+                        # (sum intentionally > 600 to allow overlap at boundaries)
+      face_size_px:
+        ge160:   240
+        r80_160: 240
+        lt80:     60    # stress cell; DreamID-V claims robustness here
+      expression:
+        neutral_low: 360
+        high:        120
+      snr:
+        clean: 400
+        noisy: 130
+
+  veil_av:
+    source: [mead, cremad]
+    full_total: 300
+    lite_total:  38
+    mead_min:   180
+    cremad_min:  90
+    per_identity_min: 1
+    window_policy: random        # most CREMA-D clips are already <=81 frames;
+                                 # MEAD clips truncated from start (controlled studio,
+                                 # start frame is as good as any)
+    covariates:
+      yaw_deg:                   # MEAD angle_label maps cleanly:
+        frontal:  120            #   front -> frontal
+        profile:  105            #   ±30   -> profile
+        extreme:   60            #   ±60   -> extreme
+      expression:
+        neutral_low: 105
+        high:        180         # MEAD/CREMA-D are expression-rich — exploit
+      snr:
+        clean: 225
+        noisy:  45               # MEAD is studio-clean; noise mainly from CREMA-D
+
+  veil_hq:
+    source: celebv_hq
+    full_total: 200
+    lite_total:  25
+    per_identity_min: 1
+    window_policy: max_yaw       # same as veil_id; CelebV-HQ clips are long enough
+                                 # that window choice matters for pose coverage
+    covariates:
+      yaw_deg:
+        frontal:  100
+        profile:   70
+        extreme:   30
+      face_size_px:              # CelebV-HQ is high-res; most faces will be large,
+        ge160:   130             # but include medium/small for fidelity stress test
+        r80_160:  50
+        lt80:      0  # CelebV-HQ has no small-face clips
+
+# Demographic cell minimums — marginal only
+# Applies to veil_id, veil_av (mead portion), veil_hq.
+# CREMA-D uses ground-truth VideoDemographics.csv.
+# FaceXFormer used for VoxCeleb2 / MEAD / CelebV-HQ.
+demographics:
+  gender:
+    M:  133
+    F:  106
+  age_band:
+    young:  106    # <30
+    mid:    106    # 30-50
+    older:   53    # >50
+  ethnicity:
+    white:  106
+    black:   80
+    asian:   80
+    latino:  53
+    other:   40
+
+# Notes on dropped elements (v1.0 -> v2.0):
+#   clip_length_s: removed. All clips are exactly 81 frames by construction.
+#     Temporal stratification is no longer a research variable.
+#   T3 attacker (clip aggregation): pools ~3 frames at 1fps within 81-frame window.
+#     Advantage over T1 is marginal; demoted to appendix in paper.
+#   veil_hq / HDTF: HDTF dropped. Its only justification was the gt15s cell.
+#     CelebV-HQ replaces it as the high-quality fidelity subset.

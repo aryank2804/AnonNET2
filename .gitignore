@@ -1,0 +1,13 @@
+config.sh
+__pycache__/
+*.pyc
+*.mp4
+*.avi
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.zip
+OAR.*.std*
+logs/
+veilbench_data/
